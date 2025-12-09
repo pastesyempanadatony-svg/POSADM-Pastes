@@ -1,0 +1,94 @@
+﻿
+> pos-app-ui-design@0.1.0 build
+> vite build
+
+[36mvite v6.3.5 [32mbuilding for production...[36m[39m
+transforming...
+[32mΓ£ô[39m 13 modules transformed.
+node.exe : [31mΓ£ù[39m 
+Build failed in 1.35s
+En línea: 1 Carácter: 1
++ & "C:\Program 
+Files\nodejs/node.exe" 
+"C:\Program 
+Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~
+    + CategoryInfo          
+    : NotSpecified: ([31m  
+  Γ£ù[39m Build failed i   
+ n 1.35s:String) [], Rem    
+oteException
+    + FullyQualifiedErrorId 
+    : NativeCommandError
+ 
+[31merror during build:
+[31m[vite]: Rollup failed 
+to resolve import "@radix-ui
+/react-slot@1.1.2" from "C:/
+Users/Yenny/OneDrive/Escrito
+rio/SistemaDeVentas-main/src
+/components/ui/button.tsx".
+This is most likely 
+unintended because it can 
+break your application at 
+runtime.
+If you do want to 
+externalize this module 
+explicitly add it to
+`build.rollupOptions.externa
+l`[31m
+    at viteLog (file:///C:/U
+sers/Yenny/OneDrive/Escritor
+io/SistemaDeVentas-main/node
+_modules/vite/dist/node/chun
+ks/dep-DBxKXgDP.js:46345:15)
+    at file:///C:/Users/Yenn
+y/OneDrive/Escritorio/Sistem
+aDeVentas-main/node_modules/
+vite/dist/node/chunks/dep-DB
+xKXgDP.js:46403:18
+    at onwarn (file:///C:/Us
+ers/Yenny/OneDrive/Escritori
+o/SistemaDeVentas-main/node_
+modules/@vitejs/plugin-react
+-swc/index.js:90:7)
+    at file:///C:/Users/Yenn
+y/OneDrive/Escritorio/Sistem
+aDeVentas-main/node_modules/
+vite/dist/node/chunks/dep-DB
+xKXgDP.js:46401:7
+    at onRollupLog (file:///
+C:/Users/Yenny/OneDrive/Escr
+itorio/SistemaDeVentas-main/
+node_modules/vite/dist/node/
+chunks/dep-DBxKXgDP.js:46393
+:5)
+    at onLog (file:///C:/Use
+rs/Yenny/OneDrive/Escritorio
+/SistemaDeVentas-main/node_m
+odules/vite/dist/node/chunks
+/dep-DBxKXgDP.js:46043:7)
+    at file:///C:/Users/Yenn
+y/OneDrive/Escritorio/Sistem
+aDeVentas-main/node_modules/
+rollup/dist/es/shared/node-e
+ntry.js:20961:32
+    at Object.logger [as 
+onLog] (file:///C:/Users/Yen
+ny/OneDrive/Escritorio/Siste
+maDeVentas-main/node_modules
+/rollup/dist/es/shared/node-
+entry.js:22848:9)
+    at ModuleLoader.handleIn
+validResolvedId (file:///C:/
+Users/Yenny/OneDrive/Escrito
+rio/SistemaDeVentas-main/nod
+e_modules/rollup/dist/es/sha
+red/node-entry.js:21592:26)
+    at file:///C:/Users/Yenn
+y/OneDrive/Escritorio/Sistem
+aDeVentas-main/node_modules/
+rollup/dist/es/shared/node-e
+ntry.js:21550:26[39m
