@@ -61,10 +61,9 @@ export default function App() {
   /**
    * Maneja el login del empleado
    */
-  const handleLogin = (employeeName: string) => {
-    // El LoginScreen ya valida el empleado, aquí solo actualizamos el estado
-    // Buscamos por nombre (el componente LoginScreen devuelve el nombre)
-    session.login("999999"); // Temporal - el LoginScreen debería devolver el ID
+  const handleLogin = (employeeId: string) => {
+    // El LoginScreen valida el empleado y pasa el ID
+    session.login(employeeId);
   };
 
   /**

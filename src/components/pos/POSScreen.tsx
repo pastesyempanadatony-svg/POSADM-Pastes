@@ -106,14 +106,13 @@ export function POSScreen({ cart, sales, orders }: POSScreenProps) {
                 isOpen={showPaymentModal}
                 onClose={() => setShowPaymentModal(false)}
                 total={cart.total}
-                onConfirm={handlePayment}
+                onConfirmPayment={handlePayment}
             />
 
             {/* Modal para guardar como pedido */}
             <SaveInstantOrderModal
                 isOpen={showSaveOrderModal}
                 onClose={() => setShowSaveOrderModal(false)}
-                items={cart.items}
                 total={cart.total}
                 onSave={handleSaveAsOrder}
             />

@@ -33,7 +33,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
         setTimeout(() => {
           const employee = employees.find((emp) => emp.id === newId);
           if (employee) {
-            onLogin(employee.name);
+            onLogin(employee.id);
           } else {
             setError("ID de empleado incorrecto");
             setEmployeeId("");
