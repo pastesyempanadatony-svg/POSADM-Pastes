@@ -36,8 +36,9 @@ export function roundToTwo(value: number): number {
 
 /**
  * Calcula el subtotal de una lista de items
+ * NOTA: Los precios en la DB YA INCLUYEN IVA, así que este es el "total con IVA"
  * @param items - Array de items con price y quantity
- * @returns Subtotal redondeado
+ * @returns Suma total de precios (con IVA incluido)
  */
 export function calculateSubtotal(
     items: Array<{ price: number; quantity: number }>
@@ -49,18 +50,81 @@ export function calculateSubtotal(
     return roundToTwo(subtotal);
 }
 
+// ============================================
+// CÁLCULOS CUANDO EL PRECIO YA INCLUYE IVA
+// ============================================
+
+const IVA_RATE = 0.16;
+
 /**
- * Calcula el IVA (16%) de un subtotal
- * @param subtotal - Subtotal base
- * @returns IVA calculado
+ * Extrae el subtotal SIN IVA de un precio que YA INCLUYE IVA
+ * Fórmula: subtotal = precioConIVA / (1 + tasaIVA)
+ * @param priceWithIVA - Precio que ya incluye IVA
+ * @returns Subtotal sin IVA
  */
-export function calculateIVA(subtotal: number): number {
-    return roundToTwo(subtotal * 0.16);
+export function extractSubtotalFromPrice(priceWithIVA: number): number {
+    return roundToTwo(priceWithIVA / (1 + IVA_RATE));
 }
 
 /**
- * Calcula el total (subtotal + IVA)
- * @param subtotal - Subtotal base
+ * Extrae el monto de IVA de un precio que YA INCLUYE IVA
+ * Fórmula: iva = precioConIVA - (precioConIVA / 1.16)
+ * @param priceWithIVA - Precio que ya incluye IVA
+ * @returns Monto del IVA
+ */
+export function extractIVAFromPrice(priceWithIVA: number): number {
+    const subtotal = extractSubtotalFromPrice(priceWithIVA);
+    return roundToTwo(priceWithIVA - subtotal);
+}
+
+/**
+ * Calcula el desglose de precios desde items cuyos precios YA INCLUYEN IVA
+ * @param items - Array de items con price (incluye IVA) y quantity
+ * @returns Objeto con subtotal (sin IVA), iva, y total (con IVA)
+ */
+export function calculatePriceBreakdown(
+    items: Array<{ price: number; quantity: number }> | undefined | null
+): { subtotal: number; iva: number; total: number } {
+    // Manejar casos donde items es undefined, null o vacío
+    if (!items || !Array.isArray(items) || items.length === 0) {
+        return { subtotal: 0, iva: 0, total: 0 };
+    }
+
+    // El total es simplemente la suma de precios (ya incluyen IVA)
+    const total = items.reduce(
+        (sum, item) => sum + (item.price || 0) * (item.quantity || 0),
+        0
+    );
+
+    // Extraer subtotal e IVA del total
+    const subtotal = extractSubtotalFromPrice(total);
+    const iva = extractIVAFromPrice(total);
+
+    return {
+        subtotal: roundToTwo(subtotal),
+        iva: roundToTwo(iva),
+        total: roundToTwo(total),
+    };
+}
+
+// ============================================
+// FUNCIONES LEGACY (para compatibilidad)
+// ============================================
+
+/**
+ * Calcula el IVA (16%) de un subtotal SIN IVA
+ * @deprecated Usar extractIVAFromPrice si el precio ya incluye IVA
+ * @param subtotal - Subtotal base SIN IVA
+ * @returns IVA calculado
+ */
+export function calculateIVA(subtotal: number): number {
+    return roundToTwo(subtotal * IVA_RATE);
+}
+
+/**
+ * Calcula el total (subtotal + IVA) desde un subtotal SIN IVA
+ * @deprecated Los precios en DB ya incluyen IVA, usar calculatePriceBreakdown
+ * @param subtotal - Subtotal base SIN IVA
  * @returns Total con IVA incluido
  */
 export function calculateTotal(subtotal: number): number {

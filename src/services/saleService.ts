@@ -79,19 +79,41 @@ export async function createSale(
     employeeName: string,
     branchId: string
 ): Promise<ISale> {
-    const saleData = {
-        ...saleInput,
+    // Crear objeto base sin valores undefined (Firestore no los acepta)
+    const saleData: Record<string, any> = {
+        items: saleInput.items,
+        subtotal: saleInput.subtotal,
+        iva: saleInput.iva,
+        total: saleInput.total,
+        paymentMethod: saleInput.paymentMethod,
         employeeId,
         employeeName,
         branchId,
         createdAt: Timestamp.now(),
     };
 
+    // Solo agregar campos opcionales si tienen valor
+    if (saleInput.cashReceived !== undefined) {
+        saleData.cashReceived = saleInput.cashReceived;
+    }
+    if (saleInput.change !== undefined) {
+        saleData.change = saleInput.change;
+    }
+
     // Si Firebase no está configurado, usar mock
     if (!isFirebaseConfigured()) {
         const newSale: ISale = {
-            ...saleData,
             id: generateId("sale"),
+            items: saleInput.items,
+            subtotal: saleInput.subtotal,
+            iva: saleInput.iva,
+            total: saleInput.total,
+            paymentMethod: saleInput.paymentMethod,
+            cashReceived: saleInput.cashReceived,
+            change: saleInput.change,
+            employeeId,
+            employeeName,
+            branchId,
             createdAt: new Date(),
         };
         mockSales.push(newSale);

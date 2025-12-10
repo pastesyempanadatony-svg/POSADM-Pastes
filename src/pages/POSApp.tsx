@@ -27,10 +27,10 @@ import {
     clearMockOrders,
     updateOrderStatus
 } from "../services/orderService";
-import { products } from "../data/products";
+import { getAvailableProducts } from "../services/productService";
 
 // Tipos
-import type { ISale, IOrder, PaymentMethod } from "../types";
+import type { ISale, IOrder, PaymentMethod, IProduct } from "../types";
 
 type Screen = "sales" | "orders" | "reports";
 
@@ -48,8 +48,7 @@ export function POSApp() {
         employee,
         branch,
         loginWithPin,
-        logout,
-        error: authError
+        logout
     } = useAuth();
 
     // ============================================
@@ -64,13 +63,24 @@ export function POSApp() {
     const [showLogoutConfirmation, setShowLogoutConfirmation] = useState(false);
     const [sales, setSales] = useState<ISale[]>([]);
     const [orders, setOrders] = useState<IOrder[]>([]);
+    const [products, setProducts] = useState<IProduct[]>([]);
 
     // Actualizar ventas y pedidos cuando cambia la autenticación
     useEffect(() => {
-        if (isAuthenticated) {
-            setSales(getMockSales());
-            setOrders(getMockOrders());
-        }
+        const loadData = async () => {
+            if (isAuthenticated) {
+                setSales(getMockSales());
+                setOrders(getMockOrders());
+
+                try {
+                    const availableProducts = await getAvailableProducts();
+                    setProducts(availableProducts);
+                } catch (error) {
+                    console.error("Error cargando productos:", error);
+                }
+            }
+        };
+        loadData();
     }, [isAuthenticated]);
 
     // ============================================
@@ -86,20 +96,33 @@ export function POSApp() {
     // ============================================
 
     const handleRegisterSale = async (
-        paymentMethod: PaymentMethod,
-        cashReceived?: number
+        saleData: {
+            items: { id: string; name: string; price: number; quantity: number }[];
+            subtotal: number;
+            iva: number;
+            total: number;
+            paymentMethod: PaymentMethod;
+            cashReceived?: number;
+        }
     ) => {
-        if (!employee || !branch) return;
+        console.log("📝 handleRegisterSale recibió:", saleData);
+
+        if (!employee || !branch) {
+            console.error("❌ No hay empleado o sucursal");
+            return;
+        }
 
         const saleInput = {
-            items: cart.getOrderItems(),
-            subtotal: cart.subtotal,
-            iva: cart.iva,
-            total: cart.total,
-            paymentMethod,
-            cashReceived,
-            change: cashReceived ? cashReceived - cart.total : undefined,
+            items: saleData.items,
+            subtotal: saleData.subtotal,
+            iva: saleData.iva,
+            total: saleData.total,
+            paymentMethod: saleData.paymentMethod,
+            cashReceived: saleData.cashReceived,
+            change: saleData.cashReceived ? saleData.cashReceived - saleData.total : undefined,
         };
+
+        console.log("📤 Enviando a createSale:", saleInput);
 
         const newSale = await createSale(
             saleInput,
@@ -108,32 +131,51 @@ export function POSApp() {
             branch.id
         );
 
-        setSales(prev => [...prev, newSale]);
-        cart.clearCart();
+        console.log("✅ Venta creada:", newSale);
+        console.log("📊 Estado actual de sales antes de agregar:", sales.length);
+
+        setSales(prev => {
+            console.log("📊 Agregando venta. Prev:", prev.length, "New:", [...prev, newSale].length);
+            return [...prev, newSale];
+        });
     };
 
     // ============================================
     // HANDLERS - PEDIDOS
     // ============================================
 
-    const handleCreateInstantOrder = async (customerData: {
-        clientName: string;
-        phone: string;
-        address: string;
+    const handleCreateInstantOrder = async (orderData: {
+        items?: Array<{ id: string; name: string; price: number; quantity: number }>;
+        customer?: {
+            name: string;
+            phone: string;
+            address?: string;
+        };
+        clientName?: string;
+        phone?: string;
+        address?: string;
         paymentMethod: PaymentMethod;
     }) => {
         if (!employee || !branch) return;
 
+        // Obtener los items del carrito si no se proporcionan
+        const items = orderData.items || cart.getOrderItems();
+
+        // Manejar ambos formatos de datos del cliente
+        const customerName = orderData.customer?.name || orderData.clientName || "Cliente";
+        const customerPhone = orderData.customer?.phone || orderData.phone || "";
+        const customerAddress = orderData.customer?.address || orderData.address || "";
+
         const newOrder = await createOrder(
             {
                 type: "instant",
-                items: cart.getOrderItems(),
+                items: items,
                 customer: {
-                    name: customerData.clientName,
-                    phone: customerData.phone,
-                    address: customerData.address,
+                    name: customerName,
+                    phone: customerPhone,
+                    address: customerAddress,
                 },
-                paymentMethod: customerData.paymentMethod,
+                paymentMethod: orderData.paymentMethod,
             },
             employee.id,
             branch.id
@@ -144,32 +186,39 @@ export function POSApp() {
     };
 
     const handleCreatePreOrder = async (orderData: {
-        clientName: string;
-        phone: string;
-        address: string;
-        date: Date;
-        time: string;
-        items: Array<{ id: string; name: string; price: number; quantity: number }>;
-        total: number;
-        advance: number;
-        paymentMethod: PaymentMethod;
+        clientName?: string;
+        phone?: string;
+        address?: string;
+        date?: Date;
+        time?: string;
+        items?: Array<{ id: string; name: string; price: number; quantity: number }>;
+        total?: number;
+        advance?: number;
+        paymentMethod?: PaymentMethod;
     }) => {
         if (!employee || !branch) return;
 
-        const newOrder = await createOrder(
-            {
-                type: "preorder",
-                items: orderData.items,
-                customer: {
-                    name: orderData.clientName,
-                    phone: orderData.phone,
-                    address: orderData.address,
-                },
-                paymentMethod: orderData.paymentMethod,
-                pickupDate: orderData.date,
-                pickupTime: orderData.time,
-                advance: orderData.advance,
+        console.log("📋 handleCreatePreOrder recibió:", orderData);
+
+        // Validar y limpiar todos los datos para evitar undefined
+        const cleanOrderData = {
+            type: "preorder" as const,
+            items: orderData.items || [],
+            customer: {
+                name: orderData.clientName || "Cliente",
+                phone: orderData.phone || "",
+                address: orderData.address || "",
             },
+            paymentMethod: orderData.paymentMethod || "cash" as PaymentMethod,
+            pickupDate: orderData.date || new Date(),
+            pickupTime: orderData.time || "12:00",
+            advance: typeof orderData.advance === "number" && !isNaN(orderData.advance) ? orderData.advance : 0,
+        };
+
+        console.log("📋 Datos limpiados:", cleanOrderData);
+
+        const newOrder = await createOrder(
+            cleanOrderData,
             employee.id,
             branch.id
         );
@@ -179,9 +228,30 @@ export function POSApp() {
 
     const handleMarkAsDelivered = async (orderId: string) => {
         await updateOrderStatus(orderId, "delivered");
+
+        // Actualizar el estado local del pedido
+        const deliveredOrder = orders.find(o => o.id === orderId);
         setOrders(prev =>
             prev.map(o => o.id === orderId ? { ...o, status: "delivered" as const } : o)
         );
+
+        // Cuando un pedido se entrega, registrarlo como venta para el corte del día
+        if (deliveredOrder && employee && branch) {
+            const saleFromOrder = await createSale(
+                {
+                    items: deliveredOrder.items,
+                    subtotal: deliveredOrder.subtotal,
+                    iva: deliveredOrder.iva,
+                    total: deliveredOrder.total,
+                    paymentMethod: deliveredOrder.paymentMethod,
+                },
+                employee.id,
+                employee.name,
+                branch.id
+            );
+            setSales(prev => [...prev, saleFromOrder]);
+            console.log("✅ Pedido entregado agregado al corte del día:", saleFromOrder.id);
+        }
     };
 
     const handlePrintOrder = (orderId: string) => {
@@ -261,13 +331,30 @@ export function POSApp() {
             card: { count: sales.filter(s => s.paymentMethod === "card").length, total: 0 },
             transfer: { count: sales.filter(s => s.paymentMethod === "transfer").length, total: 0 },
         },
-        registerSale: async (data: {
+        registerSale: (data: {
             items: any[];
             subtotal: number;
             paymentMethod: PaymentMethod;
             cashReceived?: number
         }) => {
-            await handleRegisterSale(data.paymentMethod, data.cashReceived);
+            // Capturar datos del carrito ANTES de que se limpie
+            const saleData = {
+                items: cart.getOrderItems(),
+                subtotal: cart.subtotal,
+                iva: cart.iva,
+                total: cart.total,
+                paymentMethod: data.paymentMethod,
+                cashReceived: data.cashReceived,
+            };
+
+            // Ejecutar de forma async pero no bloquear
+            handleRegisterSale(saleData)
+                .then(() => {
+                    console.log("✅ Venta registrada correctamente");
+                })
+                .catch((error) => {
+                    console.error("❌ Error registrando venta:", error);
+                });
             return {} as ISale;
         },
         clearSales: () => setSales([]),
@@ -313,6 +400,7 @@ export function POSApp() {
                         cart={cart}
                         sales={salesHook}
                         orders={ordersHook}
+                        products={products}
                     />
                 )}
 

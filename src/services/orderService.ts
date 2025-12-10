@@ -16,7 +16,7 @@ import {
 } from "firebase/firestore";
 import { db, COLLECTIONS, isFirebaseConfigured } from "../lib/firebase";
 import type { IOrder, IOrderInput, OrderStatus } from "../types";
-import { generateId, formatOrderNumber, calculateSubtotal, calculateIVA, calculateTotal } from "../utils/formatting";
+import { generateId, formatOrderNumber, calculatePriceBreakdown } from "../utils/formatting";
 
 // ============================================
 // MOCK STORAGE (para desarrollo sin Firebase)
@@ -66,14 +66,29 @@ function docToOrder(data: DocumentData, id: string): IOrder {
  * @param branchId - ID de la sucursal
  * @returns El pedido creado con su ID
  */
+/**
+ * Limpia los items para solo incluir campos requeridos (evita undefined en Firestore)
+ */
+function cleanOrderItems(items: any[] | undefined | null): Array<{ id: string; name: string; price: number; quantity: number }> {
+    if (!items || !Array.isArray(items)) return [];
+    return items.map(item => ({
+        id: item.id || "",
+        name: item.name || "",
+        price: item.price || 0,
+        quantity: item.quantity || 0,
+    }));
+}
+
 export async function createOrder(
     orderInput: IOrderInput,
     employeeId: string,
     branchId: string
 ): Promise<IOrder> {
-    const subtotal = calculateSubtotal(orderInput.items);
-    const iva = calculateIVA(subtotal);
-    const total = calculateTotal(subtotal);
+    // Limpiar items al inicio
+    const cleanItems = cleanOrderItems(orderInput.items);
+
+    // Los precios YA incluyen IVA, usar calculatePriceBreakdown
+    const priceBreakdown = calculatePriceBreakdown(cleanItems);
 
     // Si Firebase no está configurado, usar mock
     if (!isFirebaseConfigured()) {
@@ -81,11 +96,22 @@ export async function createOrder(
         const newOrder: IOrder = {
             id: generateId("order"),
             orderNumber,
-            ...orderInput,
-            subtotal,
-            iva,
-            total,
+            type: orderInput.type || "instant",
+            items: cleanItems,
+            customer: {
+                name: orderInput.customer?.name || "Cliente",
+                phone: orderInput.customer?.phone || "",
+                address: orderInput.customer?.address || "",
+            },
+            paymentMethod: orderInput.paymentMethod || "cash",
+            subtotal: priceBreakdown.subtotal,
+            iva: priceBreakdown.iva,
+            total: priceBreakdown.total,
             status: "pending",
+            pickupDate: orderInput.pickupDate,
+            pickupTime: orderInput.pickupTime,
+            advance: orderInput.advance,
+            notes: orderInput.notes,
             employeeId,
             branchId,
             createdAt: new Date(),
@@ -101,18 +127,39 @@ export async function createOrder(
         const countSnapshot = await getDocs(ordersRef);
         const orderNumber = formatOrderNumber(countSnapshot.size + 1);
 
-        const orderData = {
+        // Construir objeto sin valores undefined (Firestore no los acepta)
+        const orderData: Record<string, any> = {
             orderNumber,
-            ...orderInput,
-            subtotal,
-            iva,
-            total,
+            type: orderInput.type || "instant",
+            items: cleanItems,
+            customer: {
+                name: orderInput.customer?.name || "Cliente",
+                phone: orderInput.customer?.phone || "",
+                address: orderInput.customer?.address || "",
+            },
+            paymentMethod: orderInput.paymentMethod || "cash",
+            subtotal: priceBreakdown.subtotal,
+            iva: priceBreakdown.iva,
+            total: priceBreakdown.total,
             status: "pending" as OrderStatus,
             employeeId,
             branchId,
-            pickupDate: orderInput.pickupDate ? Timestamp.fromDate(orderInput.pickupDate) : null,
             createdAt: Timestamp.now(),
         };
+
+        // Solo agregar campos opcionales si tienen valor definido y no son undefined
+        if (orderInput.pickupDate !== undefined && orderInput.pickupDate !== null) {
+            orderData.pickupDate = Timestamp.fromDate(orderInput.pickupDate);
+        }
+        if (orderInput.pickupTime !== undefined && orderInput.pickupTime !== null && orderInput.pickupTime !== "") {
+            orderData.pickupTime = orderInput.pickupTime;
+        }
+        if (orderInput.advance !== undefined && orderInput.advance !== null && !isNaN(orderInput.advance)) {
+            orderData.advance = orderInput.advance;
+        }
+        if (orderInput.notes !== undefined && orderInput.notes !== null && orderInput.notes !== "") {
+            orderData.notes = orderInput.notes;
+        }
 
         const docRef = await addDoc(ordersRef, orderData);
 
@@ -121,11 +168,22 @@ export async function createOrder(
         return {
             id: docRef.id,
             orderNumber,
-            ...orderInput,
-            subtotal,
-            iva,
-            total,
+            type: orderInput.type || "instant",
+            items: cleanItems,  // Usar items limpios
+            customer: {
+                name: orderInput.customer?.name || "Cliente",
+                phone: orderInput.customer?.phone || "",
+                address: orderInput.customer?.address || "",
+            },
+            paymentMethod: orderInput.paymentMethod || "cash",
+            subtotal: priceBreakdown.subtotal,
+            iva: priceBreakdown.iva,
+            total: priceBreakdown.total,
             status: "pending",
+            pickupDate: orderInput.pickupDate,
+            pickupTime: orderInput.pickupTime,
+            advance: orderInput.advance,
+            notes: orderInput.notes,
             employeeId,
             branchId,
             createdAt: new Date(),

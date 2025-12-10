@@ -8,7 +8,7 @@ import { CartSidebar } from "./CartSidebar";
 import { PaymentModal } from "../PaymentModal";
 import { SaveInstantOrderModal } from "../SaveInstantOrderModal";
 import { ConfirmationModal } from "../ConfirmationModal";
-import { products } from "../../data/products";
+import type { IProduct } from "../../types";
 import type { UseCartReturn } from "../../hooks/useCart";
 import type { UseSalesReturn } from "../../hooks/useSales";
 import type { UseOrdersReturn } from "../../hooks/useOrders";
@@ -18,13 +18,14 @@ interface POSScreenProps {
     cart: UseCartReturn;
     sales: UseSalesReturn;
     orders: UseOrdersReturn;
+    products: IProduct[];
 }
 
 /**
  * Pantalla principal del punto de venta
  * Layout responsivo: Grid + Sidebar en tablet/desktop, stacked en móvil
  */
-export function POSScreen({ cart, sales, orders }: POSScreenProps) {
+export function POSScreen({ cart, sales, orders, products }: POSScreenProps) {
     const [showPaymentModal, setShowPaymentModal] = useState(false);
     const [showSaveOrderModal, setShowSaveOrderModal] = useState(false);
     const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -34,6 +35,10 @@ export function POSScreen({ cart, sales, orders }: POSScreenProps) {
      * Procesa el pago y registra la venta
      */
     const handlePayment = (paymentMethod: PaymentMethod, cashReceived?: number) => {
+        console.log("🔔 handlePayment llamado con:", { paymentMethod, cashReceived });
+        console.log("📦 Items en carrito:", cart.getOrderItems());
+        console.log("💰 Total:", cart.total);
+
         sales.registerSale({
             items: cart.getOrderItems(),
             subtotal: cart.subtotal,
@@ -47,6 +52,7 @@ export function POSScreen({ cart, sales, orders }: POSScreenProps) {
         setShowSuccessModal(true);
     };
 
+
     /**
      * Guarda como pedido instantáneo
      */
@@ -56,13 +62,14 @@ export function POSScreen({ cart, sales, orders }: POSScreenProps) {
         address: string;
         paymentMethod: PaymentMethod;
     }) => {
-        orders.createInstantOrder({
+        console.log("📦 handleSaveAsOrder con datos:", customerData);
+
+        // Usando cast a any porque ordersHook tiene tipos flexibles
+        (orders.createInstantOrder as any)({
             items: cart.getOrderItems(),
-            customer: {
-                name: customerData.clientName,
-                phone: customerData.phone,
-                address: customerData.address,
-            },
+            clientName: customerData.clientName,
+            phone: customerData.phone,
+            address: customerData.address,
             paymentMethod: customerData.paymentMethod,
         });
 

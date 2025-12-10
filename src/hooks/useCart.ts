@@ -4,12 +4,7 @@
 
 import { useState, useCallback, useMemo } from "react";
 import type { IProduct, ICartItem, IOrderItem } from "../types";
-import { roundToTwo, calculateSubtotal, calculateIVA, calculateTotal } from "../utils/formatting";
-
-/**
- * Tasa de IVA (16%)
- */
-const IVA_RATE = 0.16;
+import { calculatePriceBreakdown } from "../utils/formatting";
 
 /**
  * Hook personalizado para gestionar el carrito de compras
@@ -101,14 +96,21 @@ export function useCart() {
 
     /**
      * Cálculos derivados (memoizados para rendimiento)
+     * Los precios de productos YA INCLUYEN IVA, así que:
+     * - total = suma de precios * cantidad
+     * - subtotal = total / 1.16 (precio sin IVA)
+     * - iva = total - subtotal
      */
     const calculations = useMemo(() => {
-        const subtotal = calculateSubtotal(items);
-        const iva = calculateIVA(subtotal);
-        const total = calculateTotal(subtotal);
+        const breakdown = calculatePriceBreakdown(items);
         const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
 
-        return { subtotal, iva, total, itemCount };
+        return {
+            subtotal: breakdown.subtotal,  // Sin IVA
+            iva: breakdown.iva,             // Monto del IVA
+            total: breakdown.total,         // Con IVA (suma de precios)
+            itemCount
+        };
     }, [items]);
 
     /**

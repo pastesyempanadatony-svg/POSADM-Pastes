@@ -216,8 +216,8 @@ export function FirebaseTestPage() {
                         </p>
                         <div className="grid grid-cols-3 gap-3">
                             {[
-                                { pin: "123456", name: "Juan Pérez" },
-                                { pin: "567890", name: "María García" },
+                                { pin: "123456", name: "Edith" },
+                                { pin: "567890", name: "Daniel" },
                                 { pin: "999999", name: "Admin" },
                             ].map((emp) => (
                                 <div

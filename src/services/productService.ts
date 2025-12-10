@@ -75,28 +75,48 @@ export async function getProducts(): Promise<IProduct[]> {
 
 /**
  * Obtiene productos disponibles (para el POS)
+ * Consulta simplificada sin índices compuestos
  * 
  * @returns Array de productos disponibles
  */
 export async function getAvailableProducts(): Promise<IProduct[]> {
     // Si Firebase no está configurado, usar mock
     if (!isFirebaseConfigured()) {
+        console.log("⚠️ Firebase no configurado, usando productos mock");
         return mockProducts.map(p => ({ ...p, isAvailable: true }));
     }
 
     try {
-        const productsRef = collection(db, COLLECTIONS.PRODUCTS);
-        const q = query(
-            productsRef,
-            where("isAvailable", "==", true),
-            orderBy("category"),
-            orderBy("name")
-        );
-        const snapshot = await getDocs(q);
+        console.log("🔥 Intentando cargar productos desde Firebase...");
 
-        return snapshot.docs.map(doc => docToProduct(doc.data(), doc.id));
+        // Consulta simple sin orderBy (no requiere índices)
+        const productsRef = collection(db, COLLECTIONS.PRODUCTS);
+        const snapshot = await getDocs(productsRef);
+
+        console.log(`📦 Documentos encontrados en Firebase: ${snapshot.size}`);
+
+        if (snapshot.empty) {
+            console.warn("⚠️ No hay productos en Firebase, usando mock");
+            return mockProducts.map(p => ({ ...p, isAvailable: true }));
+        }
+
+        // Convertir y filtrar productos disponibles
+        const products = snapshot.docs
+            .map(doc => docToProduct(doc.data(), doc.id))
+            .filter(p => p.isAvailable !== false);
+
+        // Ordenar en JavaScript (por categoría, luego por nombre)
+        products.sort((a, b) => {
+            const categoryCompare = a.category.localeCompare(b.category);
+            if (categoryCompare !== 0) return categoryCompare;
+            return a.name.localeCompare(b.name);
+        });
+
+        console.log(`✅ Productos cargados desde Firebase: ${products.length}`);
+        return products;
     } catch (error) {
-        console.error("❌ Error obteniendo productos:", error);
+        console.error("❌ Error obteniendo productos de Firebase:", error);
+        console.log("⚠️ Usando productos mock como fallback");
         return mockProducts.map(p => ({ ...p, isAvailable: true }));
     }
 }

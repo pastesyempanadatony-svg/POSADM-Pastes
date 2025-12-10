@@ -108,6 +108,86 @@ async function collectionHasData(collectionName: string): Promise<boolean> {
 }
 
 /**
+ * Crea pedidos de ejemplo
+ */
+function getSampleOrders(branchId: string, employeeId: string) {
+    const now = new Date();
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    return [
+        // Pedido instantáneo pendiente
+        {
+            orderNumber: "#001",
+            type: "instant",
+            items: [
+                { id: "prod1", name: "Minero Tradicional", price: 24, quantity: 2 },
+                { id: "prod2", name: "Refresco 355ml", price: 24, quantity: 1 }
+            ],
+            subtotal: 62.07,
+            iva: 9.93,
+            total: 72,
+            customer: {
+                name: "Juan Pérez",
+                phone: "55-1234-5678",
+                address: "Calle Ejemplo #123"
+            },
+            paymentMethod: "cash",
+            status: "pending",
+            employeeId,
+            branchId,
+            createdAt: Timestamp.now(),
+        },
+        // Pedido instantáneo entregado
+        {
+            orderNumber: "#002",
+            type: "instant",
+            items: [
+                { id: "prod3", name: "Emp. Manzana", price: 24, quantity: 3 }
+            ],
+            subtotal: 62.07,
+            iva: 9.93,
+            total: 72,
+            customer: {
+                name: "María García",
+                phone: "55-9876-5432",
+                address: "Av. Principal #456"
+            },
+            paymentMethod: "card",
+            status: "delivered",
+            employeeId,
+            branchId,
+            createdAt: Timestamp.now(),
+        },
+        // Pedido anticipado para mañana
+        {
+            orderNumber: "#003",
+            type: "preorder",
+            items: [
+                { id: "prod1", name: "Minero Tradicional", price: 24, quantity: 10 },
+                { id: "prod4", name: "Emp. Choriqueso", price: 24, quantity: 10 }
+            ],
+            subtotal: 413.79,
+            iva: 66.21,
+            total: 480,
+            customer: {
+                name: "Empresa ABC",
+                phone: "55-5555-5555",
+                address: "Oficinas Centrales, Piso 5"
+            },
+            paymentMethod: "transfer",
+            status: "pending",
+            pickupDate: Timestamp.fromDate(tomorrow),
+            pickupTime: "14:00",
+            advance: 200,
+            employeeId,
+            branchId,
+            createdAt: Timestamp.now(),
+        },
+    ];
+}
+
+/**
  * Pobla Firestore con datos iniciales
  */
 export async function seedDatabase(): Promise<{
@@ -116,6 +196,8 @@ export async function seedDatabase(): Promise<{
     details: string[];
 }> {
     const details: string[] = [];
+    let firstBranchId = "";
+    let firstEmployeeId = "";
 
     if (!isFirebaseConfigured()) {
         return {
@@ -131,6 +213,11 @@ export async function seedDatabase(): Promise<{
         // ========================================
         if (await collectionHasData(COLLECTIONS.BRANCHES)) {
             details.push("⏭️ Sucursales: ya existen datos, saltando...");
+            // Obtener el ID de la primera sucursal existente
+            const branchSnapshot = await getDocs(collection(db, COLLECTIONS.BRANCHES));
+            if (!branchSnapshot.empty) {
+                firstBranchId = branchSnapshot.docs[0].id;
+            }
         } else {
             const branchIds: string[] = [];
             for (const branch of INITIAL_BRANCHES) {
@@ -141,6 +228,7 @@ export async function seedDatabase(): Promise<{
                 branchIds.push(docRef.id);
                 details.push(`✅ Sucursal creada: ${branch.name} (${docRef.id})`);
             }
+            firstBranchId = branchIds[0];
 
             // ========================================
             // CREAR EMPLEADOS (necesitan branchId)
@@ -148,10 +236,21 @@ export async function seedDatabase(): Promise<{
             for (const employee of INITIAL_EMPLOYEES) {
                 const docRef = await addDoc(collection(db, COLLECTIONS.EMPLOYEES), {
                     ...employee,
-                    branchId: branchIds[0], // Asignar a la primera sucursal
+                    branchId: firstBranchId,
                     createdAt: Timestamp.now(),
                 });
+                if (!firstEmployeeId) {
+                    firstEmployeeId = docRef.id;
+                }
                 details.push(`✅ Empleado creado: ${employee.name} (PIN: ${employee.pin})`);
+            }
+        }
+
+        // Obtener el ID del primer empleado si no lo tenemos
+        if (!firstEmployeeId) {
+            const empSnapshot = await getDocs(collection(db, COLLECTIONS.EMPLOYEES));
+            if (!empSnapshot.empty) {
+                firstEmployeeId = empSnapshot.docs[0].id;
             }
         }
 
@@ -173,6 +272,23 @@ export async function seedDatabase(): Promise<{
 
             await batch.commit();
             details.push(`✅ ${INITIAL_PRODUCTS.length} productos creados`);
+        }
+
+        // ========================================
+        // CREAR PEDIDOS DE EJEMPLO
+        // ========================================
+        if (await collectionHasData(COLLECTIONS.ORDERS)) {
+            details.push("⏭️ Pedidos: ya existen datos, saltando...");
+        } else if (firstBranchId && firstEmployeeId) {
+            const sampleOrders = getSampleOrders(firstBranchId, firstEmployeeId);
+
+            for (const order of sampleOrders) {
+                await addDoc(collection(db, COLLECTIONS.ORDERS), order);
+            }
+
+            details.push(`✅ ${sampleOrders.length} pedidos de ejemplo creados`);
+        } else {
+            details.push("⚠️ No se pudieron crear pedidos (falta branchId o employeeId)");
         }
 
         return {
