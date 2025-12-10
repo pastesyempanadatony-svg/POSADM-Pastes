@@ -1,5 +1,12 @@
 // ============================================
 // TYPES - Sistema POS Pastes y Empanadas Tony
+// Compartido entre POS y Admin Panel
+// ============================================
+
+import type { Timestamp } from "firebase/firestore";
+
+// ============================================
+// ENUMS Y TIPOS LITERALES
 // ============================================
 
 /**
@@ -28,10 +35,93 @@ export type OrderStatus = "pending" | "preparing" | "ready" | "delivered" | "can
 export type OrderType = "instant" | "preorder";
 
 /**
+ * Roles de empleado
+ */
+export type EmployeeRole = "cashier" | "manager" | "admin";
+
+// ============================================
+// INTERFACES - SUCURSALES
+// ============================================
+
+/**
+ * Sucursal/Branch
+ */
+export interface IBranch {
+    id: string;
+    name: string;
+    address: string;
+    phone: string;
+    isActive: boolean;
+    createdAt: Date | Timestamp;
+}
+
+/**
+ * Datos para crear/actualizar sucursal
+ */
+export interface IBranchInput {
+    name: string;
+    address: string;
+    phone: string;
+    isActive?: boolean;
+}
+
+// ============================================
+// INTERFACES - EMPLEADOS
+// ============================================
+
+/**
+ * Empleado del sistema
+ */
+export interface IEmployee {
+    id: string;
+    name: string;
+    pin: string; // PIN de 6 dígitos para login rápido
+    branchId: string; // Sucursal a la que pertenece
+    role: EmployeeRole;
+    isActive: boolean;
+    createdAt: Date | Timestamp;
+}
+
+/**
+ * Datos para crear/actualizar empleado
+ */
+export interface IEmployeeInput {
+    name: string;
+    pin: string;
+    branchId: string;
+    role: EmployeeRole;
+    isActive?: boolean;
+}
+
+/**
+ * Empleado con información de sucursal (para UI)
+ */
+export interface IEmployeeWithBranch extends IEmployee {
+    branchName: string;
+}
+
+// ============================================
+// INTERFACES - PRODUCTOS
+// ============================================
+
+/**
  * Producto del catálogo
  */
 export interface IProduct {
     id: string;
+    name: string;
+    price: number;
+    category: ProductCategory;
+    description?: string;
+    imageUrl?: string;
+    isAvailable: boolean;
+    createdAt?: Date | Timestamp;
+}
+
+/**
+ * Datos para crear/actualizar producto
+ */
+export interface IProductInput {
     name: string;
     price: number;
     category: ProductCategory;
@@ -48,7 +138,7 @@ export interface ICartItem extends IProduct {
 }
 
 /**
- * Item de un pedido (versión simplificada)
+ * Item de un pedido/venta (versión simplificada)
  */
 export interface IOrderItem {
     id: string;
@@ -56,6 +146,10 @@ export interface IOrderItem {
     price: number;
     quantity: number;
 }
+
+// ============================================
+// INTERFACES - CLIENTES
+// ============================================
 
 /**
  * Información del cliente
@@ -66,26 +160,9 @@ export interface ICustomer {
     address?: string;
 }
 
-/**
- * Pedido completo
- */
-export interface IOrder {
-    id: string;
-    type: OrderType;
-    items: IOrderItem[];
-    subtotal: number;
-    iva: number;
-    total: number;
-    customer: ICustomer;
-    paymentMethod: PaymentMethod;
-    status: OrderStatus;
-    createdAt: Date;
-    pickupDate?: Date;
-    pickupTime?: string;
-    advance?: number;
-    cashReceived?: number;
-    notes?: string;
-}
+// ============================================
+// INTERFACES - VENTAS
+// ============================================
 
 /**
  * Venta completada
@@ -99,18 +176,23 @@ export interface ISale {
     paymentMethod: PaymentMethod;
     cashReceived?: number;
     change?: number;
-    timestamp: Date;
+    employeeId: string;
     employeeName: string;
+    branchId: string;
+    createdAt: Date | Timestamp;
 }
 
 /**
- * Empleado del sistema
+ * Datos para crear una venta
  */
-export interface IEmployee {
-    id: string;
-    name: string;
-    pin?: string;
-    role?: "cashier" | "admin" | "manager";
+export interface ISaleInput {
+    items: IOrderItem[];
+    subtotal: number;
+    iva: number;
+    total: number;
+    paymentMethod: PaymentMethod;
+    cashReceived?: number;
+    change?: number;
 }
 
 /**
@@ -119,6 +201,7 @@ export interface IEmployee {
 export interface ICashRegisterSummary {
     date: Date;
     employeeName: string;
+    branchId: string;
     totalSales: number;
     salesCount: number;
     cashTotal: number;
@@ -126,6 +209,51 @@ export interface ICashRegisterSummary {
     transferTotal: number;
     sales: ISale[];
 }
+
+// ============================================
+// INTERFACES - PEDIDOS
+// ============================================
+
+/**
+ * Pedido completo
+ */
+export interface IOrder {
+    id: string;
+    orderNumber: string;
+    type: OrderType;
+    items: IOrderItem[];
+    subtotal: number;
+    iva: number;
+    total: number;
+    customer: ICustomer;
+    paymentMethod: PaymentMethod;
+    status: OrderStatus;
+    pickupDate?: Date | Timestamp;
+    pickupTime?: string;
+    advance?: number;
+    notes?: string;
+    employeeId: string;
+    branchId: string;
+    createdAt: Date | Timestamp;
+}
+
+/**
+ * Datos para crear un pedido
+ */
+export interface IOrderInput {
+    type: OrderType;
+    items: IOrderItem[];
+    customer: ICustomer;
+    paymentMethod: PaymentMethod;
+    pickupDate?: Date;
+    pickupTime?: string;
+    advance?: number;
+    notes?: string;
+}
+
+// ============================================
+// INTERFACES - CONTEXTOS Y PROPS
+// ============================================
 
 /**
  * Props comunes para modales
@@ -136,13 +264,16 @@ export interface IModalProps {
 }
 
 /**
- * Contexto de sesión del usuario
+ * Contexto de autenticación
  */
-export interface ISessionContext {
-    isLoggedIn: boolean;
+export interface IAuthContext {
+    isAuthenticated: boolean;
+    isLoading: boolean;
     employee: IEmployee | null;
-    login: (employeeId: string) => boolean;
+    branch: IBranch | null;
+    loginWithPin: (pin: string) => Promise<boolean>;
     logout: () => void;
+    error: string | null;
 }
 
 /**
@@ -159,3 +290,19 @@ export interface ICartContext {
     updateQuantity: (productId: string, quantity: number) => void;
     clearCart: () => void;
 }
+
+// ============================================
+// TIPOS UTILITARIOS
+// ============================================
+
+/**
+ * Convierte Timestamps de Firestore a Date
+ */
+export type WithDates<T> = {
+    [K in keyof T]: T[K] extends Timestamp ? Date : T[K];
+};
+
+/**
+ * Tipo para documentos de Firestore (sin ID, ya que lo agrega Firestore)
+ */
+export type FirestoreDocument<T> = Omit<T, "id">;
